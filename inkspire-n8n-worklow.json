@@ -1,0 +1,356 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1296,
+        1328
+      ],
+      "id": "d11ea63b-b09f-41e6-80ea-5e2c2f957aa2",
+      "name": "Wait",
+      "webhookId": "051a1368-8711-4026-80e8-5b5c0dc87ed8"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -848,
+        1424
+      ],
+      "id": "b86d1088-b50f-4152-9b2b-519a01e02e50",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "path": "06837924-996b-407b-959c-e09fff0d120b",
+        "formTitle": "mang.ai",
+        "formDescription": "Please enter the Book title or ISBN",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Book Title or ISBN",
+              "fieldType": "textarea",
+              "placeholder": " Harry Potter and the Sorcerer's Stone",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Style",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Manga"
+                  },
+                  {
+                    "option": "Comic"
+                  },
+                  {
+                    "option": "Sketch"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "69005e30-67f4-4358-9ebb-812a9d729014",
+      "name": "Input Book and Style",
+      "type": "n8n-nodes-base.formTrigger",
+      "position": [
+        -2320,
+        1424
+      ],
+      "webhookId": "06837924-996b-407b-959c-e09fff0d120b",
+      "typeVersion": 2.1
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "GPT-5"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You split books into chapter summaries and produce concise, visual scene prompts for image generation.",
+              "role": "assistant"
+            },
+            {
+              "content": "=Book title: {{ $json['Book Title or ISBN'] }}\nStyle preset: {{ $json.Style }}\n\nReturn output as STRICT JSON ONLY, no prose, no markdown fences. Shape:\n{\n  \"chapters\": [\n    {\"title\": string, \"scene_prompts\": [string]}\n  ]\n}\n\nRules:\n- 5–10 chapters total.\n- Each chapter has 1–3 scene_prompts.\n- Chapter titles must be short (<5 words).\n- Each scene prompt < 300 chars, exactly one coherent visual scene, concrete & visual.\n- Do NOT include dialogue, text overlays, or multiple disjoint scenes.\n- Each scene prompt must explicitly end with \"Style: {{ $json.Style }}\".\n- Reflect style preset aesthetics:\n  - comic → flat, bold outlines, friendly shapes\n  - sketch → pencil, minimal linework, instructional style\n  - manga → dynamic panel, screentones, high contrast\n- Avoid spoilers; keep plausible summaries."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -2096,
+        1328
+      ],
+      "id": "6910334c-a604-47e3-995f-ea080622990f",
+      "name": "Generate Story Prompts",
+      "credentials": {
+        "openAiApi": {
+          "id": "fGPiBASuXsN1JQfS",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const messages = $node[\"Generate Story Prompts\"].json[\"message\"];\nconst prompts = [];\n  for (const chapter of messages?.content?.chapters) {\n    prompts.push({scene_prompts: chapter[\"scene_prompts\"][0]});\n}\nreturn prompts;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1744,
+        1328
+      ],
+      "id": "34e9081f-edb8-4ecf-bdcf-c9c92ecd5f17",
+      "name": "Collects Results"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.bfl.ai/v1/flux-pro-1.1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"accpt\":\"application/json\",\n  \"x-key\":\"XXXXXXXX\",\n  \"Content-Tyoe\":\"application/json\"\n}\n",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.scene_prompts }}"
+            },
+            {
+              "name": "width",
+              "value": "1024"
+            },
+            {
+              "name": "height",
+              "value": "1024"
+            },
+            {
+              "name": "seed",
+              "value": "42"
+            },
+            {
+              "name": "num_inference_steps",
+              "value": "30"
+            },
+            {
+              "name": "guidance",
+              "value": "3.5"
+            },
+            {
+              "name": "safety_tolerance",
+              "value": "2"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1520,
+        1328
+      ],
+      "id": "ff472c7d-79bb-418e-a472-6dc1cd3edc72",
+      "name": "Generate Images",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "poQKJ2OQ6JdcwpJs",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nfor (const item of $input.all()) {\n try {\n   const url = item.json.polling_url;\n    const res = await this.helpers.httpRequest({\n      method: 'GET',\n      url,\n      json: true,\n    });\n\n    results.push({ json: { sample: res.result?.sample } });\n  } catch (error) {\n    results.push({ json: { sample: null, error: error.message, endpoint: url } });\n  } \n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        1328
+      ],
+      "id": "f73a85bc-cd11-4a25-a5d8-2eb656dd7dfa",
+      "name": "Get Image Links"
+    },
+    {
+      "parameters": {
+        "pageId": {
+          "__rl": true,
+          "value": "https://www.notion.so/Harry-Potter-266d9e6addd880469fa6cebc0abe3438?source=copy_link#266d9e6addd8801f8a12ec425551b4bahttps://www.notion.so/Harry-Potter-266d9e6addd880469fa6cebc0abe3438?source=copy_link#266d9e6addd8801f8a12ec425551b4ba",
+          "mode": "url"
+        },
+        "title": "={{ $json[\"Book Title or ISBN\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -1072,
+        1520
+      ],
+      "id": "b22afbf2-2ec7-46c2-b23d-5543f21df9cb",
+      "name": "Create Book",
+      "credentials": {
+        "notionApi": {
+          "id": "vCrGkNbrA9dZ8rLM",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "block",
+        "blockId": {
+          "__rl": true,
+          "value": "={{ $json.url }}",
+          "mode": "url"
+        },
+        "blockUi": {
+          "blockValues": [
+            {
+              "type": "image",
+              "url": "={{ $json.sample }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        -624,
+        1424
+      ],
+      "id": "e79db2a7-5d98-4b1f-9109-2bc379e1e29b",
+      "name": "Add Images",
+      "credentials": {
+        "notionApi": {
+          "id": "vCrGkNbrA9dZ8rLM",
+          "name": "Notion account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Get Image Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Add Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Book and Style": {
+      "main": [
+        [
+          {
+            "node": "Generate Story Prompts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Book",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story Prompts": {
+      "main": [
+        [
+          {
+            "node": "Collects Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collects Results": {
+      "main": [
+        [
+          {
+            "node": "Generate Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Images": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Image Links": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Book": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3cf1414482ada226e02b3041c7f82d2a72a2e129882035d2b44cab5ade006d94"
+  }
+}
